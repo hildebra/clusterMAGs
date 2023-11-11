@@ -4,6 +4,7 @@
 
 ```
 git clone https://github.com/hildebra/clusterMAGs.git
+cd clusterMAGs
 make
 ./clusterMAGs -h
 ```
