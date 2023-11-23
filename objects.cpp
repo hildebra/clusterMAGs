@@ -537,9 +537,14 @@ float MAG::compoundScore(int maxGenes, int maxN50) {
 }
 
 
-string MAG::getAssignedMGSname() {
-	if (mgsAssign == nullptr) { return ""; }
-	return mgsAssign->getID();
+string MAG::getAssignedMGSname(bool retAlt) {
+	if (retAlt) {
+		if (altMGShits == nullptr) { return ""; }
+		return altMGShits->getID();
+	} else {
+		if (mgsAssign == nullptr) { return ""; }
+		return mgsAssign->getID();
+	}
 }
 string MAG::printMGbyCat(vector<string>& cats) {
 	string str;
@@ -585,14 +590,30 @@ string MAG::printGenes(bool includeMGs ) {
 	return outStr ;
 }
 
-string MAG::formatMAG(vector<string>& cats, bool isCtr, bool MGs_with_others) {
+string MAG::formatMAG(vector<string>& cats, MG_LCA* lcaL, bool isCtr, bool MGs_with_others) {
 	stringstream of;
+	//MAG\tMGS\tRepresentative4MGS\tMatch2MGS\tUniqueness\tAssociatedMGS\tCompleteness
 	//bool MGs_with_others(true);if (cats.size() > 0) { MGs_with_others = false; }
-	of << getUniqName() << "\t" << getAssignedMGSname() << "\t";
+	of << getUniqName() << "\t" << getAssignedMGSname(false) << "\t";
 	if (isCtr) { of << "*\t"; }else { of << "\t"; }//centre of MAG?
+	of << MGSmatch << "\t" << uniqScore << "\t" << getAssignedMGSname(true) << "\t";
 	of << getComple() << "\t" << getConta() << "\t"  << getLCAscore() << "\t" << getN50();
 	of << "\t" << getFoundGenes(0) << "\t" << getGC() << "\t" << getCodingDens();
 	of << "\t" << getCentreScore() << "\t" << getCompoundScore() << "\t";
+
+	//add tax here
+	size_t sizTax = lcaL->getTaxLvls().size();
+	if (majorityTax.size() == sizTax) {
+		for (size_t x = 0; x < majorityTax.size(); x++) {
+			of << majorityTax[x] << "\t";
+		}
+	}
+	else {
+		for (size_t x = 0; x < sizTax; x++) {//just inserrt empty
+			of << "\t";
+		}
+	}
+
 	if (cats.size()>0) {
 		of<<printMGbyCat(cats);
 	}
@@ -1052,7 +1073,7 @@ void MAGs::cluster2MGS() {
 				makeMGS = true;
 			
 			} else if(matchMGS != nullptr && bestMtchFrac >= match2MGS_Tier[T]) {
-				matchMGS->addMAG(curMAG); curMAG->setAssignedMGS(matchMGS);
+				matchMGS->addMAG(curMAG); curMAG->setAssignedMGS(matchMGS, bestMtchFrac, uniqFrac);
 				matchMAGcnt++;
 				//cerr << "Found match " << matchMGS->getID() << "<->";
 				//cerr<< curMAG->getUniqName() << " (" << bestMtchFrac << ", " << uniqFrac << ")\n";
@@ -1068,7 +1089,7 @@ void MAGs::cluster2MGS() {
 				matchMGS = new MGS(mgsName);
 				MGSs.push_back(matchMGS);
 				matchMGS->addMAG(curMAG);
-				curMAG->setAssignedMGS(matchMGS);
+				curMAG->setAssignedMGS(matchMGS, bestMtchFrac, uniqFrac);
 				addMAGcnt++;
 				//cerr << "Creating " << mgsName << " (" << bestMtchFrac << ", " << uniqFrac << "; Compl:"<< curMAG->getComple() << " Conta:"<< curMAG->getConta() <<" LCAspec:" << curMAG->getLCAscore() << ")\n";
 			}
@@ -1114,6 +1135,10 @@ void MAGs::evalRemainderMAGs() {
 				uniqMatr[curMAG->qualTier()][x]++;
 				break;
 			}
+		}
+
+		if (matchMGS != nullptr) {
+			curMAG->setNextBestMGS(matchMGS, bestMtchFrac, uniqFrac);
 		}
 
 		
@@ -1825,10 +1850,15 @@ void MAGs::writeAllMAGs(MG_LCA* lca) {
 	string outFile = opts->outDir + "MAGvsGC.txt";
 	cout << "Writing MAGs to " << outFile << endl;
 
+	vector<string> taxLs = lcaO->getTaxLvls();
+
+
 	ofstream of(outFile);
 	if (!of) { cerr << "Couldn't open MAG_MGS_GC file " << outFile << endl; exit(71); }
-	of << "MAG\tMGS\tRepresentative4MGS\tCompleteness\tContamination\tLCAcompleteness\tN50\t";
-	of << "N_Genes\tGC\tCodingDensity\tCentreScore\tCompoundScore\t";
+	of << "MAG\tMGS\tRepresentative4MGS\tMatch2MGS\tUniqueness\tAssociatedMGS\tCompleteness\tContamination\tLCAcompleteness\tN50\t";
+	of << "N_Genes\tGC\tCodingDensity\tCentreScore\tCompoundScore";
+	for (auto tl : taxLs) { of << "\t" << tl; }
+
 	vector<string> cats = lca->getCats(true);
 	for (auto cat : cats) {
 		of << "\t" << cat;
@@ -1838,7 +1868,7 @@ void MAGs::writeAllMAGs(MG_LCA* lca) {
 
 	for (auto mgs : MGSs) {
 		MAG* cntr = mgs->getCentreMAG();
-		of << cntr->formatMAG(cats,true,true) << endl;
+		of << cntr->formatMAG(cats, lcaO,true,true) << endl;
 		MAGlst mags = mgs->getMAGs();
 
 		//get sorted list
@@ -1851,7 +1881,7 @@ void MAGs::writeAllMAGs(MG_LCA* lca) {
 
 		for (auto mag : mag_vec) {
 			if (mag.first==nullptr || mag.first == cntr){continue;}
-			of << mag.first->formatMAG(cats,false,true) << endl;
+			of << mag.first->formatMAG(cats, lcaO,false,true) << endl;
 		}
 
 	}
@@ -1859,7 +1889,7 @@ void MAGs::writeAllMAGs(MG_LCA* lca) {
 	for (auto mag : MAGlist) {
 		MAG* mg = mag.second;
 		if (mg == nullptr || mg->getAssignedMGS() != nullptr) { continue; }
-		of << mg->formatMAG(cats,false,true)<<endl;
+		of << mg->formatMAG(cats, lcaO,false,true)<<endl;
 	}
 
 	of.close();

@@ -1,8 +1,9 @@
 #include "clusterMAGs.h"
 //5.11.23: started clusterMAGs v0.1 @Falk Hildebrand
 //11.11.23: first release v0.2
+//23.11.23: v.21: add association to "best" MGS file
 
-const char* version="0.2";
+const char* version="0.21";
 
 
 void stateVersion(){
@@ -305,6 +306,7 @@ int main(int argc, char* argv[])
 	mags->calcLCAconsistency();
 	benchmark->now_total_time();
 
+	//MAGvsGC.txt
 	mags->writeAllMAGs( mglca);
 	benchmark->now_total_time();
 

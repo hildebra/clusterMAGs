@@ -102,7 +102,7 @@ public:
 		Completeness(0.f), Contamination(100.f),  GCcontent(0.f), codingDens(0.f),//LCAcompl(-1.f),
 		Ngenes(0), GenomeSize(0), ctg_N50(0), centreScore(0.f), compndScore(0.f),
 		binName(bin), sampleID(smpl), foundGenes(0), foundMGs(0),
-		selfTier(-1), mgsAssign(nullptr), mgsRank(1000), isCanopy(false),
+		selfTier(-1), mgsAssign(nullptr), altMGShits(nullptr), mgsRank(1000), isCanopy(false),
 		bestMatchFrac(-1.f), uniqFrac(-1.f), bestMGS("")
 	{}
 	~MAG() {}
@@ -124,10 +124,12 @@ public:
 	void clearCtg() { contigs.clear(); }
 	robin_hood::unordered_map <genetype, bool>& getGenes() { return genes; }
 	MGS* getAssignedMGS() { return mgsAssign; }
-	string getAssignedMGSname();
-	void setAssignedMGS(MGS* t) { mgsAssign = t; }
+	MGS* getNextBestMGS() { return altMGShits; }
+	string getAssignedMGSname(bool retAlt=false);
+	void setAssignedMGS(MGS* t, float q, float u) { mgsAssign = t;  MGSmatch = q; uniqScore = u;}
+	void setNextBestMGS(MGS* t, float q, float u) { altMGShits = t; MGSmatch = q; uniqScore = u; }
 	geneCnter& getMGgenes() {return markerGenes;}
-	string formatMAG(vector<string>&, bool,bool);
+	string formatMAG(vector<string>&, MG_LCA*, bool,bool);
 	//quality of MAG
 	float getConta() { return Contamination; }
 	float getComple() { return Completeness; }
@@ -190,6 +192,8 @@ private:
 	int foundGenes, foundMGs;
 	int selfTier;
 	MGS* mgsAssign;
+	float MGSmatch, uniqScore;
+	MGS* altMGShits; // this only stores non-definitive hits to MGS
 	uint mgsRank;
 	//identity
 	string binName;
