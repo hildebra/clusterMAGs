@@ -793,7 +793,8 @@ bool MAGs::readMAGqual(const string& qFile, string& sample, MAGlst& locMAGlist){
 }
 
 void  MAGs::readCanopies() {
-		string inF1 = opts->canopyFile;
+	string inF1 = opts->canopyFile;
+	if (inF1 == "") { return; }
 	string qFile = inF1 + ".cm2";
 	ifstream in(inF1.c_str());
 	if (!in) { cerr << "Could not open canpy file : " << inF1; exit(523); }
